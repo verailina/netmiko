@@ -2,6 +2,7 @@ import os
 import re
 import socket
 import time
+from typing import Any, Union, Sequence, TextIO, Optional
 
 from netmiko.cisco_base_connection import CiscoSSHConnection
 from netmiko.cisco_base_connection import CiscoFileTransfer
@@ -13,37 +14,42 @@ LINUX_PROMPT_ROOT = os.getenv("NETMIKO_LINUX_PROMPT_ROOT", "#")
 
 
 class LinuxSSH(CiscoSSHConnection):
-    def session_preparation(self):
+    def session_preparation(self) -> None:
         """Prepare the session after the connection has been established."""
         self.ansi_escape_codes = True
         return super().session_preparation()
 
-    def _enter_shell(self):
+    def _enter_shell(self) -> str:
         """Already in shell."""
         return ""
 
-    def _return_cli(self):
+    def _return_cli(self) -> str:
         """The shell is the CLI."""
         return ""
 
-    def disable_paging(self, *args, **kwargs):
+    def disable_paging(self, *args: Any, **kwargs: Any) -> str:
         """Linux doesn't have paging by default."""
         return ""
 
     def set_base_prompt(
         self,
-        pri_prompt_terminator=LINUX_PROMPT_PRI,
-        alt_prompt_terminator=LINUX_PROMPT_ALT,
-        delay_factor=1,
-    ):
-        """Determine base prompt."""
+        pri_prompt_terminator: str = LINUX_PROMPT_PRI,
+        alt_prompt_terminator: str = LINUX_PROMPT_ALT,
+        delay_factor: float = 1.0,
+    ) -> str:
+        """Determine base p rompt."""
         return super().set_base_prompt(
             pri_prompt_terminator=pri_prompt_terminator,
             alt_prompt_terminator=alt_prompt_terminator,
             delay_factor=delay_factor,
         )
 
-    def send_config_set(self, config_commands=None, exit_config_mode=True, **kwargs):
+    def send_config_set(
+        self,
+        config_commands: Union[str, Sequence[str], TextIO, None] = None,
+        exit_config_mode: bool = True,
+        **kwargs,
+    ) -> str:
         """Can't exit from root (if root)"""
         if self.username == "root":
             exit_config_mode = False
@@ -51,7 +57,9 @@ class LinuxSSH(CiscoSSHConnection):
             config_commands=config_commands, exit_config_mode=exit_config_mode, **kwargs
         )
 
-    def check_config_mode(self, check_string=LINUX_PROMPT_ROOT, pattern=""):
+    def check_config_mode(
+        self, check_string: str = LINUX_PROMPT_ROOT, pattern: str = ""
+    ) -> bool:
         """Verify root"""
         return self.check_enable_mode(check_string=check_string)
 
@@ -64,14 +72,14 @@ class LinuxSSH(CiscoSSHConnection):
         """Attempt to become root."""
         return self.enable(cmd=config_command, pattern=pattern, re_flags=re_flags)
 
-    def exit_config_mode(self, exit_config="exit"):
+    def exit_config_mode(self, exit_config: str = "exit", pattern: str = r"#.*") -> str:
         return self.exit_enable_mode(exit_command=exit_config)
 
-    def check_enable_mode(self, check_string=LINUX_PROMPT_ROOT):
+    def check_enable_mode(self, check_string: str = LINUX_PROMPT_ROOT) -> bool:
         """Verify root"""
         return super().check_enable_mode(check_string=check_string)
 
-    def exit_enable_mode(self, exit_command="exit"):
+    def exit_enable_mode(self, exit_command: str = "exit") -> str:
         """Exit enable mode."""
         delay_factor = self.select_delay_factor(delay_factor=0)
         output = ""
@@ -83,7 +91,13 @@ class LinuxSSH(CiscoSSHConnection):
                 raise ValueError("Failed to exit enable mode.")
         return output
 
-    def enable(self, cmd="sudo -s", pattern="ssword", re_flags=re.IGNORECASE):
+    def enable(
+        self,
+        cmd: str = "sudo -s",
+        pattern: str = "ssword",
+        enable_pattern: Optional[str] = None,
+        re_flags=re.IGNORECASE,
+    ) -> str:
         """Attempt to become root."""
         delay_factor = self.select_delay_factor(delay_factor=0)
         output = ""
@@ -107,11 +121,11 @@ class LinuxSSH(CiscoSSHConnection):
                 raise ValueError(msg)
         return output
 
-    def cleanup(self, command="exit"):
+    def cleanup(self, command: str = "exit") -> None:
         """Try to Gracefully exit the SSH session."""
         return super().cleanup(command=command)
 
-    def save_config(self, *args, **kwargs):
+    def save_config(self, *args: Any, **kwargs: Any) -> str:
         """Not Implemented"""
         raise NotImplementedError
 
